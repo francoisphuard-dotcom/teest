@@ -1,145 +1,128 @@
-# teest
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Data Transfer</title>
+    <title>Modem Optique Flash - TOP SECRET</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #f4f7f6; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        textarea { width: 100%; height: 80px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; padding: 10px; box-sizing: border-box; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0056b3; }
-        button.stop { background: #dc3545; }
-        #status { font-weight: bold; color: #007bff; }
-        #receivedText { background: #e9ecef; padding: 15px; border-radius: 4px; min-height: 50px; word-break: break-all; margin-top: 10px; border-left: 5px solid #007bff; }
+        body { font-family: 'Courier New', monospace; background: #000; color: #ff00ff; text-align: center; padding: 20px; }
+        .card { border: 2px solid #440044; padding: 20px; border-radius: 15px; background: #0a0a0a; margin-bottom: 20px; box-shadow: 0 0 20px #ff00ff22; }
+        textarea { width: 100%; height: 60px; background: #000; color: #ff00ff; border: 1px solid #440044; padding: 10px; box-sizing: border-box; font-weight: bold; }
+        button { width: 100%; padding: 15px; margin-top: 10px; background: #220022; color: #ff00ff; border: 1px solid #ff00ff; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        button:hover { background: #ff00ff; color: #000; box-shadow: 0 0 15px #ff00ff; }
+        #receivedText { font-size: 1.8em; color: #fff; margin-top: 20px; min-height: 50px; background: #111; border-radius: 10px; padding: 10px; border: 1px solid #440044; }
+        #monitor { display: block; margin: 10px auto; border: 1px solid #333; background: #000; width: 100%; max-width: 300px; border-radius: 10px; }
+        .status { font-size: 0.8em; color: #666; margin-bottom: 5px; }
     </style>
 </head>
 <body>
-    <h1>📟 Modem Audio JS</h1>
-    
+
     <div class="card">
-        <h2>Émetteur</h2>
-        <textarea id="textToSend" placeholder="Message à transformer en son..."></textarea>
-        <button onclick="sendText()">🔊 Émettre le son</button>
+        <h2>🔦 ÉMETTEUR (FLASH LED)</h2>
+        <textarea id="textToSend">NILS</textarea>
+        <button onclick="sendWithFlash()">🚀 LANCER LA TRANSMISSION</button>
+        <p class="status">Note: Fonctionne sur Android/Chrome. Sur PC, l'écran flashera à la place.</p>
     </div>
 
     <div class="card">
-        <h2>Récepteur</h2>
-        <p>Statut : <span id="status">En attente...</span></p>
-        <button onclick="startListening()">🎤 Activer le micro</button>
-        <button class="stop" onclick="stopListening()">⏹️ Stop</button>
-        <div id="received">
-            <strong>Texte décodé :</strong>
-            <div id="receivedText">-</div>
-        </div>
+        <h2>👁️ RÉCEPTEUR (CAPTEUR)</h2>
+        <div class="status">CANAL OPTIQUE : <span id="recv-status">HORS LIGNE</span></div>
+        <canvas id="monitor"></canvas>
+        <div id="receivedText">_</div>
+        <button onclick="startListening()">ACTIVER LA CAMÉRA</button>
     </div>
 
-    <script>
-        const FREQ_0 = 1200; // Fréquence pour le bit '0'
-        const FREQ_1 = 1800; // Fréquence pour le bit '1'
-        const DURATION = 150; // Durée d'un bit en ms
+<script>
+    const BIT_TIME = 150; // Vitesse de chaque flash (ms)
+
+    // --- LOGIQUE ÉMETTEUR ---
+    async function sendWithFlash() {
+        const text = document.getElementById('textToSend').value;
+        let binary = "";
+        for (let char of text) {
+            // On ajoute un '1' de synchro devant chaque lettre
+            binary += "1" + char.charCodeAt(0).toString(2).padStart(8, '0');
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            const track = stream.getVideoTracks()[0];
+            
+            for (let bit of binary) {
+                // Tente d'allumer la torche (Flash arrière)
+                const settings = track.getCapabilities();
+                if (settings.torch) {
+                    await track.applyConstraints({ advanced: [{ torch: (bit === "1") }] });
+                } else {
+                    // Fallback : Si pas de flash, on fait flasher l'écran en blanc
+                    document.body.style.backgroundColor = (bit === "1") ? "#ffffff" : "#000000";
+                }
+                await new Promise(r => setTimeout(r, BIT_TIME));
+            }
+
+            // Reset
+            if (settings.torch) await track.applyConstraints({ advanced: [{ torch: false }] });
+            document.body.style.backgroundColor = "#000000";
+            track.stop();
+        } catch (e) {
+            alert("Erreur accès caméra/flash : " + e.message);
+        }
+    }
+
+    // --- LOGIQUE RÉCEPTEUR ---
+    let isReading = false;
+    async function startListening() {
+        const canvas = document.getElementById('monitor');
+        const ctx = canvas.getContext('2d');
+        const output = document.getElementById('receivedText');
+        const status = document.getElementById('recv-status');
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
         
-        let audioCtx = null;
-        let isListening = false;
-        let streamSource = null;
+        isReading = true;
+        status.innerText = "ANALYSE EN COURS...";
+        status.style.color = "#00ff00";
 
-        // --- PARTIE ÉMISSION ---
-        function sendText() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const text = document.getElementById('textToSend').value;
-            if (!text) return;
+        let bitBuffer = "";
 
-            // Conversion texte -> Binaire (8 bits par caractère)
-            const binary = text.split('').map(char => 
-                char.charCodeAt(0).toString(2).padStart(8, '0')
-            ).join('');
-
-            console.log("Envoi de :", binary);
-            playBit(binary, 0);
-        }
-
-        function playBit(binary, index) {
-            if (index >= binary.length) return;
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
+        // Boucle de lecture cadencée
+        setInterval(() => {
+            if (!isReading) return;
             
-            osc.frequency.value = binary[index] === '1' ? FREQ_1 : FREQ_0;
-            osc.type = 'sine';
+            // On dessine la vidéo dans le canvas pour analyser les pixels
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            const now = audioCtx.currentTime;
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.2, now + 0.01);
-            gain.gain.linearRampToValueAtTime(0, now + (DURATION/1000) - 0.01);
-            
-            osc.start(now);
-            osc.stop(now + DURATION/1000);
-
-            setTimeout(() => playBit(binary, index + 1), DURATION);
-        }
-
-        // --- PARTIE RÉCEPTION ---
-        let binAccumulator = "";
-        let lastBitTime = 0;
-
-        async function startListening() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            isListening = true;
-            document.getElementById('status').innerText = "À l'écoute...";
-            
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            streamSource = audioCtx.createMediaStreamSource(stream);
-            const analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 2048;
-            streamSource.connect(analyser);
-
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-
-            function checkAudio() {
-                if (!isListening) return;
-                analyser.getByteFrequencyData(dataArray);
-
-                // On cherche quelle fréquence domine entre FREQ_0 et FREQ_1
-                const idx0 = Math.round(FREQ_0 / (audioCtx.sampleRate / analyser.fftSize));
-                const idx1 = Math.round(FREQ_1 / (audioCtx.sampleRate / analyser.fftSize));
-
-                const val0 = dataArray[idx0];
-                const val1 = dataArray[idx1];
-
-                const now = Date.now();
-                if ((val0 > 150 || val1 > 150) && (now - lastBitTime > DURATION)) {
-                    const bit = val1 > val0 ? "1" : "0";
-                    binAccumulator += bit;
-                    lastBitTime = now;
-                    decodeBuffer();
-                }
-                requestAnimationFrame(checkAudio);
+            // Calcul de la luminosité moyenne
+            let brightness = 0;
+            for (let i = 0; i < d.length; i += 4) {
+                brightness += (d[i] + d[i+1] + d[i+2]) / 3;
             }
-            checkAudio();
-        }
-
-        function decodeBuffer() {
-            if (binAccumulator.length % 8 === 0) {
-                let text = "";
-                for (let i = 0; i < binAccumulator.length; i += 8) {
-                    const byte = binAccumulator.substr(i, 8);
-                    text += String.fromCharCode(parseInt(byte, 2));
+            let avg = brightness / (d.length / 4);
+            
+            // Seuil de détection (ajustable selon la lumière ambiante)
+            let val = (avg > 140) ? "1" : "0";
+            bitBuffer += val;
+            
+            // On cherche le "1" de départ pour décoder l'octet
+            if (bitBuffer.length >= 9) {
+                let decodedStr = "";
+                for(let i = 0; i <= bitBuffer.length - 9; i++) {
+                    if (bitBuffer[i] === "1") {
+                        let byte = bitBuffer.substr(i + 1, 8);
+                        decodedStr += String.fromCharCode(parseInt(byte, 2));
+                        i += 8; // On saute l'octet lu
+                    }
                 }
-                document.getElementById('receivedText').innerText = text;
+                if (decodedStr.length > 0) output.innerText = decodedStr;
+                
+                // On garde un petit buffer pour la fluidité
+                if (bitBuffer.length > 100) bitBuffer = bitBuffer.substring(50);
             }
-        }
-
-        function stopListening() {
-            isListening = false;
-            document.getElementById('status').innerText = "Arrêté.";
-            if (streamSource) streamSource.mediaStream.getTracks().forEach(t => t.stop());
-        }
-    </script>
+        }, BIT_TIME);
+    }
+</script>
 </body>
 </html>
