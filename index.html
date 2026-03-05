@@ -1,127 +1,715 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Modem Optique - Sensor Edition</title>
-    <style>
-        body { font-family: 'Courier New', monospace; background: #000; color: #00ccff; text-align: center; padding: 20px; }
-        .card { border: 1px solid #004466; padding: 20px; border-radius: 15px; background: #050505; margin-bottom: 20px; }
-        textarea { width: 100%; height: 60px; background: #000; color: #00ccff; border: 1px solid #004466; padding: 10px; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; margin-top: 10px; background: #001122; color: #00ccff; border: 1px solid #00ccff; cursor: pointer; font-weight: bold; }
-        button:hover { background: #00ccff; color: #000; }
-        #receivedText { font-size: 1.8em; color: #fff; margin-top: 20px; min-height: 50px; border: 1px dashed #00ccff; padding: 10px; }
-        .sensor-val { font-size: 0.7em; color: #444; margin-top: 5px; }
-        #light-indicator { width: 50px; height: 50px; border-radius: 50%; background: #111; margin: 10px auto; border: 2px solid #333; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Aether - Rainmaker Evolution</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+:root {
+--primary: #00f2ff;
+--secondary: #7000ff;
+--bg: #020205;
+--accent: #ff007a;
+--ai-gold: #ffd700;
+--glass: rgba(5, 5, 25, 0.92);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+body {
+background-color: var(--bg);
+color: #fff;
+font-family: 'Orbitron', sans-serif;
+overflow: hidden;
+width: 100vw; height: 100vh;
+touch-action: none;
+}
+
+#game-container {
+position: relative;
+width: 100%; height: 100%;
+overflow: hidden;
+background: #000;
+}
+
+canvas {
+display: block;
+touch-action: none;
+filter: saturate(1.8) contrast(1.1) brightness(1.2);
+}
+
+.overlay {
+position: absolute; inset: 0;
+background: radial-gradient(circle at center, rgba(10, 10, 35, 0.95) 0%, #000 100%);
+display: flex; flex-direction: column; align-items: center;
+z-index: 2000; padding: 20px;
+backdrop-filter: blur(20px);
+}
+
+.card {
+background: var(--glass);
+border: 2px solid rgba(0, 242, 255, 0.4);
+padding: 25px;
+border-radius: 30px;
+width: 100%; max-width: 480px;
+height: 85vh;
+display: flex; flex-direction: column;
+box-shadow: 0 0 60px rgba(0, 242, 255, 0.2);
+}
+
+.stats-header {
+background: rgba(255,255,255,0.05);
+padding: 15px; border-radius: 16px; margin-bottom: 20px;
+border: 1px solid rgba(255,255,255,0.1);
+}
+
+.xp-bar-global {
+height: 8px; background: rgba(255,255,255,0.1); margin-top: 10px; border-radius: 4px; overflow: hidden;
+}
+#xp-fill-global { height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); width: 0%; transition: width 0.8s ease; }
+
+.ship-list { flex-grow: 1; overflow-y: auto; margin-bottom: 20px; padding-right: 5px; }
+.ship-list::-webkit-scrollbar { width: 4px; }
+.ship-list::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 2px; }
+
+.ship-item {
+background: rgba(255, 255, 255, 0.03);
+border: 1px solid rgba(255, 255, 255, 0.1);
+border-radius: 18px;
+padding: 15px; margin-bottom: 12px;
+display: flex; align-items: center; gap: 15px;
+transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+cursor: pointer;
+}
+.ship-item.locked { opacity: 0.4; filter: grayscale(1); }
+.ship-item.selected { border-color: var(--primary); background: rgba(0, 242, 255, 0.15); transform: scale(1.02); }
+
+.ship-icon { width: 50px; height: 50px; border: 2px solid; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.3rem; }
+
+#hud {
+position: absolute; top: 0; left: 0; width: 100%; padding: 20px;
+display: none; pointer-events: none; z-index: 100;
+}
+
+.boss-health-container {
+position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+width: 75%; display: none;
+}
+
+.btn {
+background: linear-gradient(135deg, var(--primary), var(--secondary));
+color: #fff; border: none;
+padding: 18px; width: 100%; font-size: 1.1rem; font-weight: 900;
+border-radius: 20px; font-family: inherit; cursor: pointer;
+box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+.btn:active { transform: scale(0.95); }
+
+#screen-flash {
+position: absolute; inset: 0; pointer-events: none; z-index: 1500; opacity: 0;
+background: white; transition: opacity 0.1s;
+}
+
+.grade { font-size: 4rem; font-weight: 900; color: var(--primary); margin: 10px 0; text-shadow: 0 0 25px var(--primary); }
+
+#evolution-bonus {
+color: var(--ai-gold); font-size: 0.8rem; font-weight: bold; margin-top: 5px;
+text-shadow: 0 0 5px var(--ai-gold);
+}
+</style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>🔦 ÉMETTEUR (FLASH)</h2>
-        <textarea id="textToSend">NILS</textarea>
-        <button onclick="sendFlash()">ENVOYER LE SIGNAL</button>
-    </div>
+<div id="game-container">
+<div id="screen-flash"></div>
+<canvas id="gameCanvas"></canvas>
 
-    <div class="card">
-        <h2>📡 RÉCEPTEUR (CAPTEUR)</h2>
-        <div id="light-indicator"></div>
-        <div class="sensor-val">LUMIÈRE : <span id="lux">0</span></div>
-        <button onclick="startSensor()">ACTIVER CAPTEUR DE LUMINOSITÉ</button>
-        <div id="receivedText">_</div>
-    </div>
+<!-- MENU HANGAR -->
+<div id="menu-overlay" class="overlay">
+<div class="card">
+<h1 style="text-align: center; color: var(--primary); font-size: 1.5rem; margin-bottom: 20px; letter-spacing: 5px; text-shadow: 0 0 10px var(--primary);">AETHER HANGAR</h1>
+
+<div class="stats-header">
+<div style="display:flex; justify-content: space-between; font-size: 0.9rem;">
+<span>RANG PILOTE <b id="lvl-display" style="color:var(--primary)">1</b></span>
+<span style="color:var(--ai-gold)"><b id="cr-display">0</b> CR</span>
+</div>
+<div class="xp-bar-global"><div id="xp-fill-global"></div></div>
+</div>
+
+<div id="ship-list" class="ship-list"></div>
+
+<button class="btn" onclick="game.startMission()">INITIER LA MISSION</button>
+</div>
+</div>
+
+<!-- HUD JEU -->
+<div id="hud">
+<div style="display:flex; justify-content: space-between; align-items: flex-start;">
+<div>
+<div style="font-size: 0.7rem; color: var(--accent); letter-spacing: 2px;">BOUCLIERS</div>
+<div style="width: 160px; height: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; overflow:hidden; margin-top:5px;">
+<div id="hp-bar" style="height: 100%; background: linear-gradient(90deg, var(--accent), #ff5e00); width: 100%; box-shadow: 0 0 15px var(--accent);"></div>
+</div>
+<div style="font-size: 1.3rem; margin-top: 15px; color: var(--primary); font-weight:900;" id="wave-text">VAGUE 1</div>
+<div id="evolution-bonus" style="display:none;">EVOLUTION: +0 BILLES</div>
+</div>
+<div style="text-align: right;">
+<div id="score-text" style="font-size: 2.2rem; font-weight: 900; color: #fff; text-shadow: 0 0 15px var(--primary);">0</div>
+<div id="kill-text" style="font-size: 0.75rem; color: var(--ai-gold); letter-spacing: 1px;">KILLS: 0</div>
+</div>
+</div>
+
+<div id="boss-hud" class="boss-health-container">
+<div id="boss-name" style="text-align: center; font-size: 0.8rem; color: #fff; margin-bottom: 10px; font-weight: 900; letter-spacing: 4px;">ALERTE BOSS</div>
+<div style="width: 100%; height: 15px; background: rgba(0,0,0,0.7); border: 2px solid var(--accent); border-radius: 8px; overflow:hidden; box-shadow: 0 0 25px rgba(255,0,122,0.4);">
+<div id="boss-hp-fill" style="height: 100%; background: var(--accent); width: 100%;"></div>
+</div>
+</div>
+</div>
+
+<!-- RAPPORT DE MISSION -->
+<div id="report-overlay" class="overlay" style="display:none; justify-content: center;">
+<div class="card" style="height: auto; text-align: center; padding: 40px;">
+<h2 style="color: var(--primary); letter-spacing: 5px; margin-bottom: 10px;">FIN DE MISSION</h2>
+<div id="mission-grade" class="grade">A</div>
+
+<div style="background: rgba(255,255,255,0.04); padding: 25px; border-radius: 20px; margin: 20px 0; border: 1px solid rgba(255,255,255,0.1);">
+<div style="display:flex; justify-content: space-between; margin-bottom:12px;"><span>Abattus</span> <span id="res-kills" style="color:var(--accent)">0</span></div>
+<div style="display:flex; justify-content: space-between; margin-bottom:12px;"><span>Vagues</span> <span id="res-waves" style="color:var(--primary)">0</span></div>
+<div style="display:flex; justify-content: space-between; margin-bottom:12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top:12px;"><span>Crédits</span> <span id="res-credits" style="color:var(--ai-gold)">0 CR</span></div>
+<div style="display:flex; justify-content: space-between;"><span>Expérience</span> <span id="res-xp" style="color:var(--primary)">0 XP</span></div>
+</div>
+
+<button class="btn" onclick="game.closeReport()">RETOUR AU HANGAR</button>
+</div>
+</div>
+</div>
 
 <script>
-    const BIT_TIME = 100; // Très rapide car le capteur est réactif
+/**
+* AETHER - RAINMAKER EVOLUTION V6.1
+* Correction du bug de syntaxe dans le rendu du vaisseau.
+*/
 
-    // --- ÉMETTEUR ---
-    async function sendFlash() {
-        const text = document.getElementById('textToSend').value;
-        let binary = "";
-        for (let char of text) binary += "1" + char.charCodeAt(0).toString(2).padStart(8, '0');
+class Particle {
+constructor(x, y, color, size = 2, speed = 8) {
+this.x = x; this.y = y; this.c = color;
+const ang = Math.random() * Math.PI * 2;
+const pwr = Math.random() * speed;
+this.vx = Math.cos(ang) * pwr;
+this.vy = Math.sin(ang) * pwr;
+this.life = 1.0;
+this.decay = 0.01 + Math.random() * 0.02;
+this.size = size + Math.random() * 4;
+}
+update() {
+this.x += this.vx; this.y += this.vy;
+this.vx *= 0.97; this.vy *= 0.97;
+this.life -= this.decay;
+}
+draw(ctx) {
+if (this.life <= 0) return;
+ctx.globalAlpha = this.life;
+ctx.fillStyle = this.c;
+ctx.beginPath();
+ctx.arc(this.x, this.y, Math.max(0, this.size * this.life), 0, Math.PI*2);
+ctx.fill();
+ctx.globalAlpha = 1.0;
+}
+}
 
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            const track = stream.getVideoTracks()[0];
-            
-            for (let bit of binary) {
-                await track.applyConstraints({ advanced: [{ torch: (bit === "1") }] });
-                await new Promise(r => setTimeout(r, BIT_TIME));
-            }
-            await track.applyConstraints({ advanced: [{ torch: false }] });
-            track.stop();
-        } catch (e) { alert("Flash non supporté sur cet appareil."); }
-    }
+const SHIPS_DATA = [];
+const shipTypes = [
+{ name: "STRIKER-Z", pattern: "TRIPLE", color: "#00f2ff", rate: 250, count: 3, evolution: false },
+{ name: "NEON RAINMAKER", pattern: "RAIN", color: "#7000ff", rate: 60, count: 1, evolution: true },
+{ name: "OMEGA PULSE", pattern: "HEXA", color: "#ff007a", rate: 200, count: 8, evolution: false },
+{ name: "SOLAR WIND", pattern: "SPIRAL", color: "#ffd700", rate: 80, count: 2, evolution: false },
+{ name: "VOID STORMER", pattern: "TITAN", color: "#00ff88", rate: 160, count: 18, evolution: false },
+{ name: "GALAXY OVERLORD", pattern: "NOVA", color: "#ff5e00", rate: 130, count: 32, evolution: false }
+];
 
-    // --- RÉCEPTEUR ---
-    function startSensor() {
-        const luxDisplay = document.getElementById('lux');
-        const indicator = document.getElementById('light-indicator');
-        const output = document.getElementById('receivedText');
-        
-        let bitBuffer = "";
+for(let i=0; i<36; i++) {
+const type = shipTypes[i % shipTypes.length];
+SHIPS_DATA.push({
+id: i,
+name: `${type.name} MK-${Math.floor(i/6)+1}`,
+pattern: type.pattern,
+color: type.color,
+hp: 300 + (i * 60),
+fireRate: type.rate - Math.min(type.rate-25, i * 3),
+baseBullets: type.count + Math.floor(i/3),
+evolution: type.evolution,
+price: i === 0 ? 0 : Math.floor(Math.pow(i, 2.1) * 800),
+levelReq: Math.floor(i / 1.5) + 1,
+unlocked: i === 0
+});
+}
 
-        // On vérifie si l'API Generic Sensor est disponible
-        if ('AmbientLightSensor' in window) {
-            try {
-                const sensor = new AmbientLightSensor();
-                sensor.addEventListener('reading', () => {
-                    const lux = sensor.illuminance;
-                    luxDisplay.innerText = lux;
-                    
-                    // Détection du bit
-                    const val = (lux > 100) ? "1" : "0"; // Seuil à ajuster selon la pièce
-                    indicator.style.backgroundColor = (val === "1") ? "#fff" : "#111";
-                    
-                    // On enregistre à intervalle fixe
-                    // Note: Le capteur est plus précis avec un échantillonnage temporel
-                });
-                sensor.start();
-            } catch (e) {
-                alert("Accès capteur bloqué. Utilisation de la méthode Caméra-Capteur.");
-            }
-        } else {
-            // Méthode alternative pour iPhone (utilisation du flux vidéo mais analyse d'un seul pixel central)
-            alert("L'iPhone bloque l'accès direct au capteur Lux. On utilise l'objectif frontal comme capteur de précision.");
-            useCameraAsSensor();
-        }
-    }
+const game = {
+canvas: null, ctx: null, running: false,
+profile: { credits: 0, level: 1, xp: 0, nextXp: 1200 },
+player: { x: 0, y: 0, tx: 0, ty: 0, hp: 0, maxHp: 0, last: 0, data: null, isFiring: false, trail: [], evolutionBonus: 0 },
+session: { kills: 0, wave: 1, spawned: 0, quota: 10, bossActive: false },
+enemies: [], bullets: [], enemyBullets: [], particles: [], stars: [], boss: null,
+timer: 0, drag: null,
 
-    async function useCameraAsSensor() {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.play();
+init() {
+this.canvas = document.getElementById('gameCanvas');
+this.ctx = this.canvas.getContext('2d');
+this.resize();
+this.setupInput();
+this.loadProfile();
+this.renderHangar();
+for(let i=0; i<150; i++) this.stars.push({x:Math.random()*this.canvas.width, y:Math.random()*this.canvas.height, s:Math.random()*2.2, o:Math.random(), p:Math.random()*0.015});
+window.addEventListener('resize', () => this.resize());
+this.loop();
+},
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 10; canvas.height = 10; // On réduit au max pour la vitesse
+resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; },
 
-        let bitBuffer = "";
+loadProfile() {
+const saved = localStorage.getItem('aether_v6_save');
+if(saved) {
+try {
+const data = JSON.parse(saved);
+this.profile = data.profile;
+data.unlockedIds.forEach(id => { if(SHIPS_DATA[id]) SHIPS_DATA[id].unlocked = true; });
+} catch(e) {}
+}
+},
 
-        setInterval(() => {
-            ctx.drawImage(video, 0, 0, 10, 10);
-            const d = ctx.getImageData(0, 0, 10, 10).data;
-            let brightness = 0;
-            for (let i = 0; i < d.length; i += 4) brightness += (d[i] + d[i+1] + d[i+2]) / 3;
-            let avg = brightness / (d.length / 4);
+saveProfile() {
+const unlockedIds = SHIPS_DATA.filter(s => s.unlocked).map(s => s.id);
+localStorage.setItem('aether_v6_save', JSON.stringify({ profile: this.profile, unlockedIds }));
+},
 
-            let bit = (avg > 150) ? "1" : "0";
-            document.getElementById('light-indicator').style.backgroundColor = (bit === "1") ? "#fff" : "#111";
-            bitBuffer += bit;
+setupInput() {
+const handle = (e) => {
+if(!this.running) return;
+const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+if(e.type === 'touchstart' || e.type === 'mousedown') {
+this.drag = { x: t.clientX, y: t.clientY, px: this.player.x, py: this.player.y };
+} else if(this.drag) {
+this.player.tx = this.drag.px + (t.clientX - this.drag.x);
+this.player.ty = this.drag.py + (t.clientY - this.drag.y);
+}
+this.player.isFiring = true;
+};
+const end = () => { this.player.isFiring = false; this.drag = null; };
+this.canvas.addEventListener('touchstart', handle, {passive:false});
+this.canvas.addEventListener('touchmove', handle, {passive:false});
+this.canvas.addEventListener('touchend', end);
+this.canvas.addEventListener('mousedown', handle);
+this.canvas.addEventListener('mousemove', (e) => { if(e.buttons) handle(e); });
+this.canvas.addEventListener('mouseup', end);
+},
 
-            if (bitBuffer.length >= 9) {
-                let text = "";
-                for(let i=0; i <= bitBuffer.length - 9; i++) {
-                    if (bitBuffer[i] === "1") {
-                        let byte = bitBuffer.substr(i + 1, 8);
-                        text += String.fromCharCode(parseInt(byte, 2));
-                        i += 8;
-                    }
-                }
-                if (text.length > 0) document.getElementById('receivedText').innerText = text;
-            }
-        }, BIT_TIME);
-    }
+renderHangar() {
+const list = document.getElementById('ship-list');
+list.innerHTML = "";
+document.getElementById('cr-display').innerText = this.profile.credits;
+document.getElementById('lvl-display').innerText = this.profile.level;
+document.getElementById('xp-fill-global').style.width = (this.profile.xp / this.profile.nextXp * 100) + "%";
+
+SHIPS_DATA.forEach(s => {
+const item = document.createElement('div');
+const canAfford = this.profile.credits >= s.price && this.profile.level >= s.levelReq;
+item.className = `ship-item ${!s.unlocked ? 'locked' : ''} ${this.player.data?.id === s.id ? 'selected' : ''}`;
+item.innerHTML = `
+<div class="ship-icon" style="border-color:${s.color}; color:${s.color};">${s.name[0]}</div>
+<div style="flex-grow:1">
+<div style="font-size:0.85rem; font-weight:900; color:${s.color}">${s.name}</div>
+<div style="font-size:0.6rem; color:#888; letter-spacing:1px;">${s.pattern}${s.evolution ? ' [EVOLUTIF]' : ''}</div>
+</div>
+${!s.unlocked ? `<div style="font-size:0.75rem; color:var(--ai-gold); font-weight:900;">${s.price} CR</div>` : ''}
+`;
+item.onclick = () => {
+if(!s.unlocked) {
+if(canAfford) {
+this.profile.credits -= s.price;
+s.unlocked = true; this.saveProfile(); this.renderHangar();
+}
+} else { this.player.data = s; this.renderHangar(); }
+};
+list.appendChild(item);
+});
+if(!this.player.data) this.player.data = SHIPS_DATA[0];
+},
+
+triggerFlash(color = 'white') {
+const f = document.getElementById('screen-flash');
+f.style.background = color;
+f.style.opacity = '0.35';
+setTimeout(() => f.style.opacity = '0', 60);
+},
+
+startMission() {
+this.running = true;
+this.enemies = []; this.bullets = []; this.enemyBullets = []; this.particles = []; this.boss = null;
+this.session = { kills: 0, wave: 1, spawned: 0, quota: 10, bossActive: false };
+this.player.hp = this.player.data.hp;
+this.player.maxHp = this.player.data.hp;
+this.player.x = this.canvas.width/2; this.player.y = this.canvas.height-180;
+this.player.tx = this.player.x; this.player.ty = this.player.y;
+this.player.trail = [];
+this.player.evolutionBonus = 0;
+
+document.getElementById('menu-overlay').style.display = 'none';
+document.getElementById('hud').style.display = 'block';
+document.getElementById('boss-hud').style.display = 'none';
+document.getElementById('evolution-bonus').style.display = this.player.data.evolution ? 'block' : 'none';
+document.getElementById('wave-text').innerText = "VAGUE 1";
+},
+
+spawnEnemy() {
+const rand = Math.random();
+let e = { x: Math.random() * this.canvas.width, y: -60, hp: 60 + (this.session.wave * 25), s: 3, c: '#ff007a', type: 'scout' };
+
+if(rand < 0.15) { // Kamikaze
+e.type = 'kamikaze'; e.c = '#ffd700'; e.s = 8; e.hp = 30;
+} else if(rand < 0.3) { // Croiseur
+e.type = 'cruiser'; e.c = '#00ff88'; e.s = 1.8; e.hp = 400 + (this.session.wave * 120);
+} else if(rand < 0.45) { // Maraudeur
+e.type = 'marauder'; e.c = '#7000ff'; e.s = 4; e.hp = 120;
+}
+
+this.enemies.push(e);
+this.session.spawned++;
+},
+
+spawnBoss() {
+this.session.bossActive = true;
+const bossTypes = [
+{ name: "NEON SPIDER", color: "#00f2ff", type: "SPIDER", hp: 6000 },
+{ name: "CYBER CORE", color: "#ff007a", type: "CORE", hp: 8000 },
+{ name: "STORM HERALD", color: "#ffd700", type: "HERALD", hp: 7000 },
+{ name: "VOID OVERSEER", color: "#7000ff", type: "OVERSEER", hp: 10000 }
+];
+const config = bossTypes[Math.floor(Math.random()*bossTypes.length)];
+const hp = config.hp + (this.session.wave * 2500);
+
+this.boss = {
+name: config.name, color: config.color, type: config.type,
+x: this.canvas.width/2, y: -200, ty: 180,
+hp: hp, maxHp: hp, size: 110, angle: 0, modeTimer: 0
+};
+
+document.getElementById('boss-name').innerText = config.name;
+document.getElementById('boss-hud').style.display = 'block';
+this.triggerFlash(config.color);
+},
+
+endMission() {
+this.running = false;
+const totalXp = (this.session.kills * 40) + (this.session.wave * 250);
+const totalCredits = Math.floor(totalXp * 0.6);
+this.profile.xp += totalXp;
+this.profile.credits += totalCredits;
+while(this.profile.xp >= this.profile.nextXp) {
+this.profile.xp -= this.profile.nextXp;
+this.profile.level++;
+this.profile.nextXp = Math.floor(this.profile.nextXp * 1.6);
+}
+this.saveProfile();
+document.getElementById('mission-grade').innerText = this.session.wave >= 12 ? "S" : this.session.wave >= 7 ? "A" : this.session.wave >= 4 ? "B" : "C";
+document.getElementById('res-kills').innerText = this.session.kills;
+document.getElementById('res-waves').innerText = this.session.wave;
+document.getElementById('res-credits').innerText = totalCredits + " CR";
+document.getElementById('res-xp').innerText = totalXp + " XP";
+document.getElementById('hud').style.display = 'none';
+document.getElementById('report-overlay').style.display = 'flex';
+},
+
+closeReport() {
+document.getElementById('report-overlay').style.display = 'none';
+document.getElementById('menu-overlay').style.display = 'flex';
+this.renderHangar();
+},
+
+fire() {
+const p = this.player;
+if(!p.isFiring || Date.now() - p.last < p.data.fireRate) return;
+
+const s = 16;
+const color = p.data.color;
+const count = p.data.baseBullets + (p.data.evolution ? p.evolutionBonus : 0);
+const add = (vx, vy, dmg=60) => this.bullets.push({x:p.x, y:p.y-10, vx, vy, c:color, dmg});
+
+switch(p.data.pattern) {
+case "TRIPLE":
+for(let i=0; i<count; i++) {
+let a = (i - (count-1)/2) * 0.18;
+add(Math.sin(a)*s, -Math.cos(a)*s);
+}
+break;
+case "RAIN":
+for(let i=0; i<count; i++) {
+let rx = p.x + (Math.random()-0.5)*120;
+this.bullets.push({x:rx, y:p.y-25, vx:(Math.random()-0.5)*3, vy:-s - Math.random()*8, c:color, dmg:50});
+}
+break;
+case "HEXA":
+for(let i=0; i<count; i++) {
+let a = (Math.PI*2/count)*i + this.timer*0.08;
+add(Math.cos(a)*s, Math.sin(a)*s);
+}
+break;
+case "SPIRAL":
+for(let i=0; i<count; i++) {
+let a = this.timer * 0.4 + (i * 0.2);
+add(Math.cos(a)*s, Math.sin(a)*s);
+}
+break;
+case "TITAN":
+for(let i=0; i<count; i++) {
+let spread = (i - count/2) * 4.5;
+add(spread, -s - Math.abs(spread/2.5), 110);
+}
+break;
+case "NOVA":
+for(let i=0; i<count; i++) {
+let ang = (Math.PI*2/count)*i;
+add(Math.cos(ang)*s, Math.sin(ang)*s);
+}
+break;
+}
+p.last = Date.now();
+},
+
+update() {
+if(!this.running) return;
+this.timer++;
+const p = this.player;
+
+p.x += (p.tx - p.x) * 0.16;
+p.y += (p.ty - p.y) * 0.16;
+p.x = Math.max(25, Math.min(this.canvas.width-25, p.x));
+p.y = Math.max(25, Math.min(this.canvas.height-25, p.y));
+
+if(this.timer % 2 === 0) {
+p.trail.unshift({x: p.x, y: p.y, o: 1.0});
+if(p.trail.length > 18) p.trail.pop();
+}
+p.trail.forEach(t => t.o -= 0.06);
+
+this.fire();
+
+if(!this.session.bossActive) {
+if(this.session.spawned < this.session.quota) {
+if(Math.random() < 0.06) this.spawnEnemy();
+} else if(this.enemies.length === 0) {
+this.session.wave++;
+this.session.spawned = 0;
+this.session.quota += 6;
+document.getElementById('wave-text').innerText = "VAGUE " + this.session.wave;
+if(this.session.wave % 3 === 0) this.spawnBoss();
+}
+}
+
+if(this.boss) {
+const b = this.boss;
+if(b.y < b.ty) b.y += 2.5;
+b.x += Math.sin(this.timer*0.035) * 5;
+b.angle += 0.04;
+b.modeTimer++;
+
+// Boss Patterns
+if(b.modeTimer % 60 === 0) {
+if(b.type === "SPIDER") {
+for(let i=0; i<16; i++) {
+let a = (Math.PI*2/16)*i + Math.sin(this.timer*0.1);
+this.enemyBullets.push({x:b.x, y:b.y, vx:Math.cos(a)*5.5, vy:Math.sin(a)*5.5, c: b.color});
+}
+} else if(b.type === "CORE") {
+for(let i=0; i<4; i++) {
+let a = b.angle + (i * Math.PI/2);
+for(let j=0; j<3; j++) {
+this.enemyBullets.push({x:b.x, y:b.y, vx:Math.cos(a)*(5+j), vy:Math.sin(a)*(5+j), c: b.color});
+}
+}
+} else if(b.type === "HERALD") {
+let a = Math.atan2(p.y - b.y, p.x - b.x);
+for(let i=-2; i<=2; i++) {
+this.enemyBullets.push({x:b.x, y:b.y, vx:Math.cos(a+i*0.2)*7, vy:Math.sin(a+i*0.2)*7, c: b.color});
+}
+} else {
+for(let i=0; i<8; i++) {
+this.enemyBullets.push({x:Math.random()*this.canvas.width, y:-30, vx:(Math.random()-0.5)*2, vy:8, c: b.color});
+}
+}
+}
+document.getElementById('boss-hp-fill').style.width = (b.hp / b.maxHp * 100) + "%";
+}
+
+this.enemies.forEach((e, i) => {
+e.y += e.s;
+if(e.type === 'marauder' && this.timer % 80 === 0) {
+let a = Math.atan2(p.y - e.y, p.x - e.x);
+this.enemyBullets.push({x:e.x, y:e.y, vx:Math.cos(a)*5, vy:Math.sin(a)*5, c: e.c});
+}
+if(Math.hypot(p.x-e.x, p.y-e.y) < 45) {
+p.hp -= 60; this.enemies.splice(i, 1);
+this.triggerFlash('#ff007a');
+}
+else if(e.y > this.canvas.height+100) this.enemies.splice(i, 1);
+});
+
+this.bullets.forEach((b, i) => {
+b.x += b.vx; b.y += b.vy;
+if(this.boss && Math.hypot(b.x-this.boss.x, b.y-this.boss.y) < this.boss.size) {
+this.boss.hp -= b.dmg; this.bullets.splice(i, 1);
+if(this.boss.hp <= 0) {
+this.session.kills += 150;
+if(p.data.evolution) {
+p.evolutionBonus += 10;
+document.getElementById('evolution-bonus').innerText = `EVOLUTION: +${p.evolutionBonus} BILLES`;
+}
+this.session.bossActive = false;
+this.triggerFlash('white');
+for(let k=0; k<60; k++) this.particles.push(new Particle(this.boss.x, this.boss.y, this.boss.color, 6, 18));
+this.boss = null;
+document.getElementById('boss-hud').style.display = 'none';
+}
+return;
+}
+this.enemies.forEach((e, j) => {
+if(Math.hypot(b.x-e.x, b.y-e.y) < 40) {
+e.hp -= b.dmg; this.bullets.splice(i, 1);
+if(e.hp <= 0) {
+this.session.kills++;
+if(p.data.evolution) {
+p.evolutionBonus++;
+document.getElementById('evolution-bonus').innerText = `EVOLUTION: +${p.evolutionBonus} BILLES`;
+}
+for(let k=0; k<12; k++) this.particles.push(new Particle(e.x, e.y, e.c, 3, 10));
+this.enemies.splice(j, 1);
+}
+}
+});
+if(b.y < -400 || b.y > this.canvas.height+400 || b.x < -100 || b.x > this.canvas.width+100) this.bullets.splice(i, 1);
+});
+
+this.enemyBullets.forEach((eb, i) => {
+eb.x += eb.vx; eb.y += eb.vy;
+if(Math.hypot(eb.x-p.x, eb.y-p.y) < 22) {
+p.hp -= 25; this.enemyBullets.splice(i, 1);
+this.triggerFlash('#ff007a');
+}
+else if(eb.y > this.canvas.height+100 || eb.x < -100 || eb.x > this.canvas.width+100) this.enemyBullets.splice(i, 1);
+});
+
+this.particles.forEach((pa, i) => { pa.update(); if(pa.life <= 0) this.particles.splice(i, 1); });
+
+document.getElementById('hp-bar').style.width = (p.hp / p.maxHp * 100) + "%";
+document.getElementById('score-text').innerText = this.session.kills * 100;
+document.getElementById('kill-text').innerText = "KILLS: " + this.session.kills;
+if(p.hp <= 0) this.endMission();
+},
+
+draw() {
+this.ctx.fillStyle = 'rgba(2, 2, 12, 0.35)';
+this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+this.stars.forEach(s => {
+this.ctx.fillStyle = `rgba(255,255,255,${s.o + Math.sin(this.timer*s.p)*0.3})`;
+this.ctx.fillRect(s.x, s.y, s.s, s.s);
+});
+
+if(!this.running) return;
+const p = this.player;
+
+this.ctx.globalCompositeOperation = 'lighter';
+p.trail.forEach(t => {
+this.ctx.fillStyle = p.data.color; this.ctx.globalAlpha = t.o * 0.45;
+this.ctx.beginPath(); this.ctx.arc(t.x, t.y, 10, 0, Math.PI*2); this.ctx.fill();
+});
+this.ctx.globalAlpha = 1.0;
+
+this.particles.forEach(pa => pa.draw(this.ctx));
+
+this.bullets.forEach(b => {
+this.ctx.fillStyle = b.c;
+this.ctx.shadowBlur = 12; this.ctx.shadowColor = b.c;
+this.ctx.fillRect(b.x-2.5, b.y-12, 5, 24);
+});
+
+this.enemyBullets.forEach(eb => {
+this.ctx.fillStyle = '#fff';
+this.ctx.shadowBlur = 15; this.ctx.shadowColor = eb.c || '#ff007a';
+this.ctx.beginPath(); this.ctx.arc(eb.x, eb.y, 7, 0, Math.PI*2); this.ctx.fill();
+});
+
+if(this.boss) {
+this.ctx.strokeStyle = this.boss.color; this.ctx.lineWidth = 6;
+this.ctx.shadowBlur = 25; this.ctx.shadowColor = this.boss.color;
+this.ctx.save();
+this.ctx.translate(this.boss.x, this.boss.y);
+this.ctx.rotate(this.boss.angle);
+
+if(this.boss.type === "SPIDER") {
+for(let i=0; i<8; i++) {
+this.ctx.rotate(Math.PI/4);
+this.ctx.strokeRect(30, -5, 40, 10);
+}
+this.ctx.strokeRect(-30, -30, 60, 60);
+} else if(this.boss.type === "CORE") {
+this.ctx.strokeRect(-50, -50, 100, 100);
+this.ctx.rotate(this.timer*0.05);
+this.ctx.strokeRect(-35, -35, 70, 70);
+} else {
+this.ctx.beginPath();
+this.ctx.moveTo(0, -60); this.ctx.lineTo(50, 40); this.ctx.lineTo(-50, 40);
+this.ctx.closePath(); this.ctx.stroke();
+}
+this.ctx.restore();
+}
+
+this.enemies.forEach(e => {
+this.ctx.strokeStyle = e.c; this.ctx.lineWidth = 4;
+this.ctx.shadowBlur = 15; this.ctx.shadowColor = e.c;
+this.ctx.beginPath();
+if(e.type === 'cruiser') {
+this.ctx.strokeRect(e.x-28, e.y-28, 56, 56);
+this.ctx.strokeRect(e.x-10, e.y-10, 20, 20);
+} else if(e.type === 'kamikaze') {
+this.ctx.moveTo(e.x, e.y+25); this.ctx.lineTo(e.x-18, e.y-18); this.ctx.lineTo(e.x+18, e.y-18); this.ctx.closePath();
+} else {
+this.ctx.moveTo(e.x-22, e.y); this.ctx.lineTo(e.x, e.y+22); this.ctx.lineTo(e.x+22, e.y); this.ctx.lineTo(e.x, e.y-22); this.ctx.closePath();
+}
+this.ctx.stroke();
+});
+
+// Vaisseau Joueur
+this.ctx.shadowBlur = 25; this.ctx.shadowColor = p.data.color;
+this.ctx.strokeStyle = '#fff'; this.ctx.lineWidth = 5;
+this.ctx.save();
+this.ctx.translate(p.x, p.y);
+this.ctx.beginPath();
+this.ctx.moveTo(0, -28); this.ctx.lineTo(22, 18); this.ctx.lineTo(0, 8); this.ctx.lineTo(-22, 18);
+this.ctx.closePath(); this.ctx.stroke();
+
+// Indicateur d'évolution pour le Rainmaker
+if(p.data.evolution) {
+this.ctx.strokeStyle = "#ffd700"; // Correction : utilisation directe de la couleur or au lieu de var(--ai-gold)
+this.ctx.lineWidth = 2;
+this.ctx.beginPath(); this.ctx.arc(0,0, 35 + Math.sin(this.timer*0.1)*5, 0, Math.PI*2); this.ctx.stroke();
+}
+this.ctx.restore();
+
+this.ctx.globalCompositeOperation = 'source-over';
+this.ctx.shadowBlur = 0;
+},
+
+loop() {
+this.update(); this.draw();
+requestAnimationFrame(() => this.loop());
+}
+};
+
+window.onload = () => game.init();
 </script>
 </body>
 </html>
